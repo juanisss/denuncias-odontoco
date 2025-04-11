@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Denuncias OdontoCo</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f9f9f9;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background-color: #c62828;
+      color: white;
+      padding: 20px;
+      text-align: center;
+      position: relative;
+    }
+    .search-header {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      gap: 10px;
+    }
+    .search-header input {
+      padding: 5px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    .search-header button {
+      padding: 6px 12px;
+      background-color: #fff;
+      color: #c62828;
+      border: 1px solid #c62828;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .search-header button:hover {
+      background-color: #c62828;
+      color: white;
+    }
+    main {
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      gap: 30px;
+    }
+    .section {
+      background-color: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    .section h2 {
+      color: #c62828;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+    }
+    input, textarea, select {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    button {
+      background-color: #c62828;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      margin-top: 15px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #a42424;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+      z-index: 1000;
+    }
+    .modal h3 {
+      margin-top: 0;
+    }
+    .overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 999;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Denuncias OdontoCo</h1>
+    <p>Exponiendo los peores lugares para trabajar en el ámbito odontológico</p>
+    <div class="search-header">
+      <input type="text" id="nameSearch" placeholder="Buscar por nombre...">
+      <button onclick="searchByName()">Buscar</button>
+    </div>
+  </header>
+  <main>
+    <section class="section report-form">
+      <h2>Reportar un lugar</h2>
+      <form id="reportForm">
+        <label for="placeName">Nombre del lugar</label>
+        <input type="text" id="placeName" required>
+        <label for="state">Departamento</label>
+        <input type="text" id="state" required>
+        <label for="city">Ciudad</label>
+        <input type="text" id="city" required>
+        <label for="street">Dirección</label>
+        <input type="text" id="street" required>
+        <label for="details">Comentarios</label>
+        <textarea id="details" rows="4"></textarea>
+        <button type="submit">Enviar denuncia</button>
+      </form>
+    </section>
+    <section class="section top-reported">
+      <h2>Lugares más reportados</h2>
+      <ul id="topList"></ul>
+    </section>
+    <section class="section all-reports">
+      <h2>Todos los reportes</h2>
+      <label for="filterState">Filtrar por Departamento</label>
+      <input type="text" id="filterState">
+      <label for="filterCity">Filtrar por Ciudad</label>
+      <input type="text" id="filterCity">
+      <label for="filterDate">Filtrar por Fecha</label>
+      <input type="date" id="filterDate">
+      <button onclick="filterReports()">Buscar</button>
+      <ul id="allReportsList"></ul>
+    </section>
+  </main>
+  <div class="overlay" id="overlay"></div>
+  <div class="modal" id="modal">
+    <h3 id="modalTitle"></h3>
+    <ul id="commentList"></ul>
+    <button onclick="closeModal()">Cerrar</button>
+  </div>
+  <script>
+    const reportForm = document.getElementById('reportForm');
+    const topList = document.getElementById('topList');
+    const allReportsList = document.getElementById('allReportsList');
+    const overlay = document.getElementById('overlay');
+    const modal = document.getElementById('modal');
+    const modalTitle = document.getElementById('modalTitle');
+    const commentList = document.getElementById('commentList');
+    const reportMap = new Map();
+    const commentsMap = new Map();
+    const reportLog = [];
+
+    reportForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const name = document.getElementById('placeName').value.trim();
+      const state = document.getElementById('state').value.trim();
+      const city = document.getElementById('city').value.trim();
+      const street = document.getElementById('street').value.trim();
+      const comment = document.getElementById('details').value.trim();
+      const date = new Date().toISOString().split('T')[0];
+      const key = `${name} - ${street}, ${city}, ${state}`;
+      reportMap.set(key, (reportMap.get(key) || 0) + 1);
+      if (!commentsMap.has(key)) commentsMap.set(key, []);
+      if (comment) commentsMap.get(key).push(comment);
+      reportLog.push({ key, name, state, city, street, date });
+      updateTopList();
+      updateAllReportsList();
+      reportForm.reset();
+    });
+
+    function updateTopList() {
+      const entries = Array.from(reportMap.entries()).sort((a, b) => b[1] - a[1]);
+      topList.innerHTML = '';
+      entries.slice(0, 10).forEach(([place, count]) => {
+        const li = document.createElement('li');
+        li.textContent = `${place} (Reportes: ${count})`;
+        li.addEventListener('click', () => showComments(place));
+        topList.appendChild(li);
+      });
+    }
+
+    function updateAllReportsList(filtered = reportLog) {
+      allReportsList.innerHTML = '';
+      filtered.forEach(report => {
+        const li = document.createElement('li');
+        li.textContent = `${report.name} - ${report.street}, ${report.city}, ${report.state} (Fecha: ${report.date})`;
+        li.addEventListener('click', () => showComments(report.key));
+        allReportsList.appendChild(li);
+      });
+    }
+
+    function filterReports() {
+      const state = document.getElementById('filterState').value.trim().toLowerCase();
+      const city = document.getElementById('filterCity').value.trim().toLowerCase();
+      const date = document.getElementById('filterDate').value;
+      const filtered = reportLog.filter(report =>
+        (!state || report.state.toLowerCase().includes(state)) &&
+        (!city || report.city.toLowerCase().includes(city)) &&
+        (!date || report.date === date)
+      );
+      updateAllReportsList(filtered);
+    }
+
+    function searchByName() {
+      const name = document.getElementById('nameSearch').value.trim().toLowerCase();
+      if (!name) {
+        updateAllReportsList();
+        return;
+      }
+      const filtered = reportLog.filter(report => report.name.toLowerCase().includes(name));
+      updateAllReportsList(filtered);
+    }
+
+    function showComments(place) {
+      modalTitle.textContent = place;
+      commentList.innerHTML = '';
+      const comments = commentsMap.get(place) || [];
+      commentList.innerHTML = comments.length
+        ? comments.map(c => `<li>${c}</li>`).join('')
+        : '<li>No hay comentarios.</li>';
+      overlay.style.display = 'block';
+      modal.style.display = 'block';
+    }
+
+    function closeModal() {
+      overlay.style.display = 'none';
+      modal.style.display = 'none';
+    }
+  </script>
+</body>
+</html>
